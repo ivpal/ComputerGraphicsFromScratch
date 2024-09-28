@@ -21,6 +21,8 @@ class Vector3(val x: Float, val y: Float, val z: Float) {
 
     operator fun div(f: Float): Vector3 = Vector3(x / f, y / f, z / f)
 
+    operator fun unaryMinus(): Vector3 = Vector3(-x, -y, -z)
+
     companion object {
         val ORIGIN = Vector3(0.0f, 0.0f, 0.0f)
     }

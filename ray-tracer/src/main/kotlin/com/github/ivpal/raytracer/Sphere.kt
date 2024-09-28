@@ -5,7 +5,8 @@ import kotlin.math.sqrt
 class Sphere(
     val center: Vector3,
     val radius: Float,
-    val color: Color
+    val color: Color,
+    val specular: Int
 ) {
     fun intersectRay(ray: Vector3): Pair<Float, Float> {
         val toCenter = Vector3.ORIGIN - center
