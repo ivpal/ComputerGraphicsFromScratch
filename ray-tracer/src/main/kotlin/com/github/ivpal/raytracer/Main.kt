@@ -14,25 +14,29 @@ val scene = listOf(
         center = Vector3(0.0f, -1.0f, 3.0f),
         radius = 1.0f,
         color = Color.RED,
-        specular = 500
+        specular = 500,
+        reflective = 0.2f
     ),
     Sphere(
         center = Vector3(2.0f, 0.0f, 4.0f),
         radius = 1.0f,
         color = Color.BLUE,
-        specular = 500
+        specular = 500,
+        reflective = 0.3f
     ),
     Sphere(
         center = Vector3(-2.0f, 0.0f, 4.0f),
         radius = 1.0f,
         color = Color.GREEN,
-        specular = 10
+        specular = 10,
+        reflective = 0.4f
     ),
     Sphere(
         center = Vector3(0.0f, -5001.0f, 0.0f),
         radius = 5000.0f,
         color = Color(255, 255, 0),
-        specular = 1000
+        specular = 1000,
+        reflective = 0.5f
     )
 )
 
@@ -51,7 +55,7 @@ fun main() {
     for (x in -w until w) {
         for (y in -h until h) {
             val ray = canvasToViewport(x, y)
-            val color = traceRay(ray, 1.0f, Float.POSITIVE_INFINITY)
+            val color = traceRay(Vector3.ZERO, ray, 1.0f, Float.POSITIVE_INFINITY)
             builder.append("${color.r} ${color.g} ${color.b}\n")
         }
     }
@@ -68,6 +72,41 @@ fun canvasToViewport(x: Int, y: Int): Vector3 =
         projectionPlaneDistance
     )
 
+fun traceRay(origin: Vector3, ray: Vector3, tMin: Float, tMax: Float, recursionDepth: Int = 3): Color {
+    val (closestSphere, closestT) = closestIntersection(origin, ray, tMin, tMax)
+    if (closestSphere == null) {
+        return Color.BLACK
+    }
+
+    val point = origin + ray * closestT
+    val normal = unitVector(point - closestSphere.center)
+    val localColor = closestSphere.color * computeLighting(point, normal, -ray, closestSphere.specular)
+    if (recursionDepth == 0 || closestSphere.reflective == 0.0f) {
+        return localColor
+    }
+
+    val reflectedRay = reflectRay(-ray, normal)
+    val reflectedColor = traceRay(point, reflectedRay, 0.001f, Float.POSITIVE_INFINITY, recursionDepth - 1)
+    return localColor * (1 - closestSphere.reflective) + reflectedColor * closestSphere.reflective
+}
+
+fun closestIntersection(o: Vector3, ray: Vector3, tMin: Float, tMax: Float): Pair<Sphere?, Float> {
+    var closestT = Float.POSITIVE_INFINITY
+    var closestSphere: Sphere? = null
+    for (sphere in scene) {
+        val (t1, t2) = sphere.intersectRay(o, ray)
+        if (t1 in tMin..tMax && t1 < closestT) {
+            closestT = t1
+            closestSphere = sphere
+        }
+        if (t2 in tMin..tMax && t2 < closestT) {
+            closestT = t2
+            closestSphere = sphere
+        }
+    }
+    return closestSphere to closestT
+}
+
 fun computeLighting(point: Vector3, normal: Vector3, v: Vector3, s: Int): Float {
     var intensity = 0.0f
     var tMax = 1.0f
@@ -76,7 +115,7 @@ fun computeLighting(point: Vector3, normal: Vector3, v: Vector3, s: Int): Float 
             intensity += light.intensity
             continue
         } else {
-           var l = Vector3.ORIGIN
+           var l = Vector3.ZERO
             if (light is Light.PointLight) {
                 l = light.position - point
             }
@@ -111,30 +150,4 @@ fun computeLighting(point: Vector3, normal: Vector3, v: Vector3, s: Int): Float 
     return intensity
 }
 
-fun traceRay(ray: Vector3, tMin: Float, tMax: Float): Color {
-    val (closestSphere, closestT) = closestIntersection(Vector3.ORIGIN, ray, tMin, tMax)
-    if (closestSphere == null) {
-        return Color.WHITE
-    }
-
-    val point = Vector3.ORIGIN + ray * closestT
-    val normal = point - closestSphere.center
-    return closestSphere.color * computeLighting(point, unitVector(normal), -ray, closestSphere.specular)
-}
-
-fun closestIntersection(o: Vector3, ray: Vector3, tMin: Float, tMax: Float): Pair<Sphere?, Float> {
-    var closestT = Float.POSITIVE_INFINITY
-    var closestSphere: Sphere? = null
-    for (sphere in scene) {
-        val (t1, t2) = sphere.intersectRay(o, ray)
-        if (t1 in tMin..tMax && t1 < closestT) {
-            closestT = t1
-            closestSphere = sphere
-        }
-        if (t2 in tMin..tMax && t2 < closestT) {
-            closestT = t2
-            closestSphere = sphere
-        }
-    }
-    return closestSphere to closestT
-}
+fun reflectRay(ray: Vector3, normal: Vector3): Vector3 = normal * 2.0f * dot(normal, ray) - ray

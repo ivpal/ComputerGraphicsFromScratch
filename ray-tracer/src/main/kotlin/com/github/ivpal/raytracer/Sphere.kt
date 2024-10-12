@@ -6,7 +6,8 @@ class Sphere(
     val center: Vector3,
     val radius: Float,
     val color: Color,
-    val specular: Int
+    val specular: Int,
+    val reflective: Float
 ) {
     fun intersectRay(o: Vector3, ray: Vector3): Pair<Float, Float> {
         val toCenter = o - center
