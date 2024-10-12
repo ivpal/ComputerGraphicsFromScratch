@@ -6,10 +6,7 @@ class Vector3(val x: Float, val y: Float, val z: Float) {
     val length: Float
         get() = sqrt(x * x + y * y + z * z)
 
-    fun dot(v: Vector3): Float = x * v.x + y * v.y + z * v.z
-
     fun normalize(): Vector3 {
-        val length = length
         return this / length
     }
 
@@ -27,3 +24,7 @@ class Vector3(val x: Float, val y: Float, val z: Float) {
         val ORIGIN = Vector3(0.0f, 0.0f, 0.0f)
     }
 }
+
+fun dot(u: Vector3, v: Vector3): Float = u.x * v.x + u.y * v.y + u.z * v.z
+
+fun unitVector(v: Vector3): Vector3 = v / v.length

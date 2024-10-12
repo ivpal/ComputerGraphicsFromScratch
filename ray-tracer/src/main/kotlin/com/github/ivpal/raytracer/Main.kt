@@ -47,8 +47,9 @@ fun main() {
     val h = canvasHeight / 2
 
     val builder = StringBuilder("P3\n${canvasWidth} ${canvasHeight}\n255\n")
-    for (y in (h - 1) downTo -h) {
-        for (x in (w - 1) downTo -w) {
+
+    for (x in -w until w) {
+        for (y in -h until h) {
             val ray = canvasToViewport(x, y)
             val color = traceRay(ray, 1.0f, Float.POSITIVE_INFINITY)
             builder.append("${color.r} ${color.g} ${color.b}\n")
@@ -69,9 +70,11 @@ fun canvasToViewport(x: Int, y: Int): Vector3 =
 
 fun computeLighting(point: Vector3, normal: Vector3, v: Vector3, s: Int): Float {
     var intensity = 0.0f
+    var tMax = 1.0f
     for (light in lights) {
         if (light is Light.AmbientLight) {
             intensity += light.intensity
+            continue
         } else {
            var l = Vector3.ORIGIN
             if (light is Light.PointLight) {
@@ -80,18 +83,25 @@ fun computeLighting(point: Vector3, normal: Vector3, v: Vector3, s: Int): Float 
 
             if (light is Light.DirectionLight) {
                 l = light.direction
+                tMax = Float.POSITIVE_INFINITY
+            }
+
+            // Shadow check
+            val (shadowSphere, _) = closestIntersection(point, l, 0.001f, tMax)
+            if (shadowSphere != null) {
+                continue
             }
 
             // Diffuse
-            val nDotL = normal.dot(l)
+            val nDotL = dot(normal, l)
             if (nDotL > 0) {
                 intensity += light.intensity * nDotL / (normal.length * l.length)
             }
 
             // Specular
             if (s != -1) {
-                val r = normal * 2.0f * normal.dot(l) - l
-                val rDotV = r.dot(v)
+                val r = normal * 2.0f * dot(normal, l) - l
+                val rDotV = dot(r, v)
                 if (rDotV > 0) {
                     intensity += light.intensity * (rDotV / (r.length * v.length)).pow(s)
                 }
@@ -102,10 +112,21 @@ fun computeLighting(point: Vector3, normal: Vector3, v: Vector3, s: Int): Float 
 }
 
 fun traceRay(ray: Vector3, tMin: Float, tMax: Float): Color {
+    val (closestSphere, closestT) = closestIntersection(Vector3.ORIGIN, ray, tMin, tMax)
+    if (closestSphere == null) {
+        return Color.WHITE
+    }
+
+    val point = Vector3.ORIGIN + ray * closestT
+    val normal = point - closestSphere.center
+    return closestSphere.color * computeLighting(point, unitVector(normal), -ray, closestSphere.specular)
+}
+
+fun closestIntersection(o: Vector3, ray: Vector3, tMin: Float, tMax: Float): Pair<Sphere?, Float> {
     var closestT = Float.POSITIVE_INFINITY
     var closestSphere: Sphere? = null
     for (sphere in scene) {
-        val (t1, t2) = sphere.intersectRay(ray)
+        val (t1, t2) = sphere.intersectRay(o, ray)
         if (t1 in tMin..tMax && t1 < closestT) {
             closestT = t1
             closestSphere = sphere
@@ -115,12 +136,5 @@ fun traceRay(ray: Vector3, tMin: Float, tMax: Float): Color {
             closestSphere = sphere
         }
     }
-
-    if (closestSphere == null) {
-        return Color.WHITE
-    }
-
-    val point = Vector3.ORIGIN + ray * closestT
-    val normal = point - closestSphere.center
-    return closestSphere.color * computeLighting(point, normal.normalize(), -ray, closestSphere.specular)
+    return closestSphere to closestT
 }
